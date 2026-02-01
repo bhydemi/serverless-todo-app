@@ -4,7 +4,7 @@ import { createLogger } from '../../utils/logger.mjs'
 
 const logger = createLogger('auth')
 
-const jwksUrl = 'https://test-endpoint.auth0.com/.well-known/jwks.json'
+const jwksUrl = 'https://dev-tmfehhgvloaytq76.us.auth0.com/.well-known/jwks.json'
 
 export async function handler(event) {
   try {
@@ -46,8 +46,32 @@ async function verifyToken(authHeader) {
   const token = getToken(authHeader)
   const jwt = jsonwebtoken.decode(token, { complete: true })
 
-  // TODO: Implement token verification
-  return undefined;
+  if (!jwt) {
+    throw new Error('Invalid token')
+  }
+
+  // Fetch the JWKS from Auth0
+  const response = await Axios.get(jwksUrl)
+  const keys = response.data.keys
+
+  // Find the signing key
+  const signingKey = keys.find(key => key.kid === jwt.header.kid)
+
+  if (!signingKey) {
+    throw new Error('Unable to find signing key')
+  }
+
+  // Convert the key to PEM format
+  const pem = certToPEM(signingKey.x5c[0])
+
+  // Verify the token
+  const verifiedToken = jsonwebtoken.verify(token, pem, {
+    algorithms: ['RS256']
+  })
+
+  logger.info('User was authorized', { userId: verifiedToken.sub })
+
+  return verifiedToken
 }
 
 function getToken(authHeader) {
@@ -60,4 +84,10 @@ function getToken(authHeader) {
   const token = split[1]
 
   return token
+}
+
+function certToPEM(cert) {
+  let pem = cert.match(/.{1,64}/g).join('\n')
+  pem = `-----BEGIN CERTIFICATE-----\n${pem}\n-----END CERTIFICATE-----\n`
+  return pem
 }
