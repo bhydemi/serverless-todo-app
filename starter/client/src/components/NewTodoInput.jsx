@@ -7,22 +7,27 @@ import { createTodo } from '../api/todos-api'
 export function NewTodoInput({ onNewTodo }) {
   const [newTodoName, setNewTodoName] = useState('')
 
-  const { getAccessTokenSilently } = useAuth0()
+  const { getIdTokenClaims } = useAuth0()
 
   const onTodoCreate = async (event) => {
     try {
-      const accessToken = await getAccessTokenSilently({
-        audience: `https://test-endpoint.auth0.com/api/v2/`,
-        scope: 'write:todos'
-      })
+      if (!newTodoName || newTodoName.trim() === '') {
+        alert('Please enter a task name')
+        return
+      }
+
+      const idTokenClaims = await getIdTokenClaims()
+      const idToken = idTokenClaims.__raw
       const dueDate = calculateDueDate()
-      const createdTodo = await createTodo(accessToken, {
-        name: newTodoName,
+
+      const createdTodo = await createTodo(idToken, {
+        name: newTodoName.trim(),
         dueDate
       })
       onNewTodo(createdTodo)
+      setNewTodoName('')
     } catch (e) {
-      console.log('Failed to created a new TODO', e)
+      console.error('Failed to create a new TODO', e)
       alert('Todo creation failed')
     }
   }

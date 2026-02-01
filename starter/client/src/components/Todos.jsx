@@ -76,11 +76,9 @@ export function Todos() {
 
   async function onTodoDelete(todoId) {
     try {
-      const accessToken = await getAccessTokenSilently({
-        audience: `https://test-endpoint.auth0.com/api/v2/`,
-        scope: 'delete:todo'
-      })
-      await deleteTodo(accessToken, todoId)
+      const idTokenClaims = await getIdTokenClaims()
+      const idToken = idTokenClaims.__raw
+      await deleteTodo(idToken, todoId)
       setTodos(todos.filter((todo) => todo.todoId !== todoId))
     } catch (e) {
       alert('Todo deletion failed')
@@ -90,11 +88,9 @@ export function Todos() {
   async function onTodoCheck(pos) {
     try {
       const todo = todos[pos]
-      const accessToken = await getAccessTokenSilently({
-        audience: `https://test-endpoint.auth0.com/api/v2/`,
-        scope: 'write:todo'
-      })
-      await patchTodo(accessToken, todo.todoId, {
+      const idTokenClaims = await getIdTokenClaims()
+      const idToken = idTokenClaims.__raw
+      await patchTodo(idToken, todo.todoId, {
         name: todo.name,
         dueDate: todo.dueDate,
         done: !todo.done
@@ -106,7 +102,7 @@ export function Todos() {
       )
     } catch (e) {
       console.log('Failed to check a TODO', e)
-      alert('Todo deletion failed')
+      alert('Todo update failed')
     }
   }
 
@@ -114,33 +110,27 @@ export function Todos() {
     navigate(`/todos/${todoId}/edit`)
   }
 
-  const { user, getAccessTokenSilently } = useAuth0()
+  const { getIdTokenClaims } = useAuth0()
   const [todos, setTodos] = useState([])
   const [loadingTodos, setLoadingTodos] = useState(true)
   const navigate = useNavigate()
 
-  console.log('User', {
-    name: user.name,
-    email: user.email
-  })
-
   useEffect(() => {
-    async function foo() {
+    async function fetchTodos() {
       try {
-        const accessToken = await getAccessTokenSilently({
-          audience: `https://test-endpoint.auth0.com/api/v2/`,
-          scope: 'read:todos'
-        })
-        console.log('Access token: ' + accessToken)
-        const todos = await getTodos(accessToken)
+        const idTokenClaims = await getIdTokenClaims()
+        const idToken = idTokenClaims.__raw
+        const todos = await getTodos(idToken)
         setTodos(todos)
         setLoadingTodos(false)
       } catch (e) {
+        console.error('Failed to fetch todos:', e)
         alert(`Failed to fetch todos: ${e.message}`)
+        setLoadingTodos(false)
       }
     }
-    foo()
-  }, [getAccessTokenSilently])
+    fetchTodos()
+  }, [getIdTokenClaims])
 
   return (
     <div>
